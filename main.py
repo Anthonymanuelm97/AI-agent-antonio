@@ -1,14 +1,18 @@
+from pathlib import Path
+
 from agent import Agent
+from conversation import start_conversation
 
 
 def main():
-    agent = Agent(
-        personality=(
-            "You are a helpful AI assistant that answers clearly, stays concise, "
-            "and focuses on practical solutions."
-        )
+    personality = Path(__file__).with_name("SYSTEM_PROMPTS").read_text(
+        encoding="utf-8"
     )
-    print(agent.record)
+    agent = Agent(
+        personality=personality,
+        business_name="the coffee shop",
+    )
+    start_conversation(agent)
 
 
 if __name__ == "__main__":
