@@ -19,14 +19,15 @@ TOOLS = [
         "function": {
             "name": "calculate_order",
             "description": (
-                "Always call this tool whenever a customer asks the price or "
-                "cost of one or more products, asks how much an order would "
-                "cost, or asks for a total. Use it for questions such as "
-                "'How much is a coffee?', 'How much would two cookies cost?', "
-                "or 'What is the price of 2 cold brews and 3 cookies?'. "
-                "Pass every requested product and its quantity in items; use "
-                "quantity 1 when the customer asks about a single product "
-                "without specifying a quantity."
+                "Always call this tool whenever a customer asks how much one "
+                "or more products cost, asks for the price of an order, or "
+                "wants to know the total cost of multiple products. This "
+                "includes questions such as 'How much is a coffee?', 'How "
+                "much would two cookies cost?', 'What would be the price of "
+                "2 cold brews and 3 cookies?', and 'How much would my order "
+                "cost?' or any similar price calculation. Include every "
+                "requested product and quantity; use quantity 1 when a "
+                "single product is asked about without a quantity."
             ),
             "parameters": {
                 "type": "object",
@@ -34,24 +35,20 @@ TOOLS = [
                     "items": {
                         "type": "array",
                         "description": (
-                            "Products whose prices should be calculated, "
-                            "including one entry for each requested product."
+                            "The products and quantities to include in the "
+                            "price calculation."
                         ),
                         "items": {
                             "type": "object",
                             "properties": {
                                 "product": {
                                     "type": "string",
-                                    "description": (
-                                        "The product name as requested by "
-                                        "the customer."
-                                    ),
+                                    "description": "The product name.",
                                 },
                                 "quantity": {
                                     "type": "integer",
                                     "description": (
-                                        "The number of this product to "
-                                        "include in the calculation."
+                                        "The quantity of the product."
                                     ),
                                 },
                             },
