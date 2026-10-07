@@ -13,6 +13,58 @@ _MENU = {
     for item in category["items"]
 }
 
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate_order",
+            "description": (
+                "Always call this tool whenever a customer asks the price or "
+                "cost of one or more products, asks how much an order would "
+                "cost, or asks for a total. Use it for questions such as "
+                "'How much is a coffee?', 'How much would two cookies cost?', "
+                "or 'What is the price of 2 cold brews and 3 cookies?'. "
+                "Pass every requested product and its quantity in items; use "
+                "quantity 1 when the customer asks about a single product "
+                "without specifying a quantity."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "description": (
+                            "Products whose prices should be calculated, "
+                            "including one entry for each requested product."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "product": {
+                                    "type": "string",
+                                    "description": (
+                                        "The product name as requested by "
+                                        "the customer."
+                                    ),
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "description": (
+                                        "The number of this product to "
+                                        "include in the calculation."
+                                    ),
+                                },
+                            },
+                            "required": ["product", "quantity"],
+                        },
+                    }
+                },
+                "required": ["items"],
+            },
+        },
+    }
+]
+
 
 def calculate_order(items):
     order_details = []
@@ -37,3 +89,10 @@ def calculate_order(items):
         + f"\n\nTotal: RD${total}"
         + "\n\nPrices are for reference only and are subject to confirmation."
     )
+
+
+def execute_tool(name, arguments):
+    if name == "calculate_order":
+        return calculate_order(arguments["items"])
+
+    return f"The requested tool '{name}' does not exist."
