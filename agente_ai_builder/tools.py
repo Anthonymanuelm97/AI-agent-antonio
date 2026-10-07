@@ -4,14 +4,10 @@ from pathlib import Path
 
 _BUSINESS_DATA_PATH = Path(__file__).resolve().parent.parent / "business_data.json"
 
-with _BUSINESS_DATA_PATH.open(encoding="utf-8") as business_data_file:
-    _business_data = json.load(business_data_file)
 
-_MENU = {
-    item["name"].strip().lower(): item
-    for category in _business_data["menu"]["categories"]
-    for item in category["items"]
-}
+def load_business_data():
+    with _BUSINESS_DATA_PATH.open(encoding="utf-8") as business_data_file:
+        return json.load(business_data_file)
 
 TOOLS = [
     {
@@ -61,9 +57,17 @@ TOOLS = [
         },
     }
 ]
+HERRAMIENTAS = TOOLS
 
 
 def calculate_order(items):
+    business_data = load_business_data()
+    menu = {
+        item["name"].strip().lower(): item
+        for category in business_data["menu"]["categories"]
+        for item in category["items"]
+    }
+    currency = business_data["business"]["currency"]["display"]
     order_details = []
     total = 0
 
@@ -71,25 +75,30 @@ def calculate_order(items):
         product = item["product"].strip().lower()
         quantity = item["quantity"]
 
-        if product not in _MENU:
+        if product not in menu:
             return f"{item['product']} is not available on the menu."
 
-        menu_item = _MENU[product]
+        menu_item = menu[product]
         subtotal = menu_item["price"] * quantity
         total += subtotal
         order_details.append(
-            f"{quantity} x {menu_item['name']} = RD${subtotal}"
+            f"{quantity} x {menu_item['name']} = {currency}{subtotal}"
         )
 
     return (
         "\n".join(order_details)
-        + f"\n\nTotal: RD${total}"
+        + f"\n\nTotal: {currency}{total}"
         + "\n\nPrices are for reference only and are subject to confirmation."
     )
 
 
 def execute_tool(name, arguments):
     if name == "calculate_order":
-        return calculate_order(arguments["items"])
+        if not isinstance(arguments, dict) or "items" not in arguments:
+            return "The calculate_order tool request is missing required items."
+        try:
+            return calculate_order(arguments["items"])
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            return "The order could not be calculated from the available business data."
 
     return f"The requested tool '{name}' does not exist."

@@ -9,5 +9,5 @@ def start_conversation(agent):
         response = agent.answer(message)
         print(f"Assistant: {response}")
 
-    agent.show_history()
+    agent.show_record()
     
