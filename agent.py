@@ -4,22 +4,37 @@ from groq import Groq
 
 from agente_ai_builder.tools import HERRAMIENTAS, execute_tool
 
+MODEL = "openai/gpt-oss-120b"
+
 
 class Agent:
     def __init__(self, personality: str, business_name: str = "the coffee shop"):
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         self.business_name = business_name
+        self.user_name = ""
         self.record = [
             {"role": "system", "content": personality}
         ]
+
+    def _messages_for_model(self):
+        messages = self.record.copy()
+        if self.user_name:
+            system_message = messages[0].copy()
+            system_message["content"] = (
+                f"{system_message['content']}\n\n"
+                f"The customer's name is {self.user_name}. Remember their name "
+                "and use it naturally when speaking with them."
+            )
+            messages[0] = system_message
+        return messages
 
     def answer(self, message: str) -> str:
         self.record.append({"role": "user", "content": message})
 
         while True:
             response = self.client.chat.completions.create(
-                model="openai/gpt-oss-120b",
-                messages=self.record,
+                model=MODEL,
+                messages=self._messages_for_model(),
                 tools=HERRAMIENTAS,
                 tool_choice="auto",
             )
@@ -77,16 +92,33 @@ class Agent:
                     }
                 )
 
+            response = self.client.chat.completions.create(
+                model=MODEL,
+                messages=self._messages_for_model(),
+            )
+            assistant_message = response.choices[0].message
+            content = assistant_message.content or ""
+            self.record.append({"role": "assistant", "content": content})
+            return content
+
     def show_record(self) -> None:
+        display_name = self.user_name or "User"
+
+        print("========================================")
+        print("          CONVERSATION HISTORY")
+        print("========================================")
+
         for message in self.record:
-            if (
-                (
-                    message["role"] == "user"
-                    or (
-                        message["role"] == "assistant"
-                        and not message.get("tool_calls")
-                    )
-                )
-                and message.get("content")
-            ):
-                print(f"{message['role']}: {message['content']}")
+            role = message.get("role")
+            if role not in ("user", "assistant"):
+                continue
+
+            content = message.get("content")
+            if content:
+                label = display_name if role == "user" else "Assistant"
+                print(f"\n{label}:\n{content}")
+                print("\n----------------------------------------")
+
+        print("\n========================================")
+        print("           END OF CONVERSATION HISTORY")
+        print("========================================")

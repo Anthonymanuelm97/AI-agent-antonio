@@ -13,17 +13,36 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "get_menu",
+            "description": (
+                "Always use this tool when a customer asks what products "
+                "are on the menu, what products are registered, or asks to "
+                "see the menu. In the customer-facing response, list every "
+                "returned product together with its listed price; do not "
+                "omit prices just because the customer did not explicitly "
+                "ask for them. Clearly explain that the returned entries and "
+                "prices are unverified reference data."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "calculate_order",
             "description": (
-                "Always call this tool whenever a customer asks how much one "
-                "or more products cost, asks for the price of an order, or "
-                "wants to know the total cost of multiple products. This "
-                "includes questions such as 'How much is a coffee?', 'How "
-                "much would two cookies cost?', 'What would be the price of "
-                "2 cold brews and 3 cookies?', and 'How much would my order "
-                "cost?' or any similar price calculation. Include every "
-                "requested product and quantity; use quantity 1 when a "
-                "single product is asked about without a quantity."
+                "Always call this tool when a customer asks the price or "
+                "total cost of one or more specifically identified menu "
+                "products or an order. Include every requested product and "
+                "quantity; use quantity 1 when a specific product is asked "
+                "about without a quantity. If the customer uses a generic "
+                "or ambiguous product name that does not exactly identify a "
+                "menu entry, call get_menu first and clarify the intended "
+                "product instead of guessing."
             ),
             "parameters": {
                 "type": "object",
@@ -60,6 +79,35 @@ TOOLS = [
 HERRAMIENTAS = TOOLS
 
 
+def get_menu():
+    business_data = load_business_data()
+    currency = business_data["business"]["currency"]["display"]
+    menu = business_data["menu"]
+    lines = [
+        "Menu entries (reference information; availability and prices are "
+        "not verified):"
+    ]
+
+    for category in menu["categories"]:
+        items = category["items"]
+        if not items:
+            continue
+
+        lines.append(f"\n{category['name']}:")
+        for item in items:
+            price = item.get("price")
+            price_text = (
+                f"{currency}{price}" if price is not None else "price unavailable"
+            )
+            lines.append(f"- {item['name']}: {price_text}")
+
+    if len(lines) == 1:
+        return "There are no menu products configured in the business data."
+
+    lines.append("\nThese entries are unverified reference information.")
+    return "\n".join(lines)
+
+
 def calculate_order(items):
     business_data = load_business_data()
     menu = {
@@ -93,6 +141,12 @@ def calculate_order(items):
 
 
 def execute_tool(name, arguments):
+    if name == "get_menu":
+        try:
+            return get_menu()
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            return "The menu could not be retrieved from the available business data."
+
     if name == "calculate_order":
         if not isinstance(arguments, dict) or "items" not in arguments:
             return "The calculate_order tool request is missing required items."
