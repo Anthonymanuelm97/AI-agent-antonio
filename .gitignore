@@ -11,3 +11,4 @@ wheels/
 
 # Local environment variables
 .env
+data/orders.xlsx

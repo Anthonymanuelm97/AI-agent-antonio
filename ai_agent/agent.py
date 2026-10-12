@@ -96,15 +96,6 @@ class Agent:
                     }
                 )
 
-            response = self.client.chat.completions.create(
-                model=MODEL,
-                messages=self._messages_for_model(),
-            )
-            assistant_message = response.choices[0].message
-            content = assistant_message.content or ""
-            self.record.append({"role": "assistant", "content": content})
-            return content
-
     def show_record(self) -> None:
         display_name = self.user_name or "User"
 

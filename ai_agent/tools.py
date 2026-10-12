@@ -1,4 +1,4 @@
-from .data_access import load_business_data
+from .data_access import load_business_data, save_order_record
 
 TOOLS = [
     {
@@ -35,6 +35,47 @@ TOOLS = [
                 "type": "object",
                 "properties": {},
                 "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_order",
+            "description": (
+                "After the customer explicitly confirms they want to place "
+                "the order, call this tool exactly once. Never call it again "
+                "for the same order. Do not use it for price questions, "
+                "quotes, or order calculations alone."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "customer_name": {
+                        "type": "string",
+                        "description": "The customer's name.",
+                    },
+                    "items": {
+                        "type": "array",
+                        "description": "Confirmed products and quantities.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "product": {
+                                    "type": "string",
+                                    "description": "The product name.",
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "description": "The quantity ordered.",
+                                },
+                            },
+                            "required": ["product", "quantity"],
+                        },
+                    },
+                },
+                "required": ["customer_name", "items"],
             },
         },
     },
@@ -87,6 +128,35 @@ TOOLS = [
 HERRAMIENTAS = TOOLS
 
 
+def save_order(customer_name, items):
+    if not isinstance(customer_name, str) or not customer_name.strip():
+        raise ValueError("A customer name is required to save an order.")
+    if not isinstance(items, list) or not items:
+        raise ValueError("At least one order item is required.")
+
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Each order item must include a product and quantity.")
+        product = item.get("product")
+        quantity = item.get("quantity")
+        if not isinstance(product, str) or not product.strip():
+            raise ValueError("Each order item must include a product name.")
+        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity < 1:
+            raise ValueError("Each order item must have a positive integer quantity.")
+
+    try:
+        _, item_descriptions, total, _ = _calculate_order(items)
+    except ValueError as error:
+        return f"Order was not saved: {error}"
+
+    order_id = save_order_record(
+        customer_name.strip(),
+        ", ".join(item_descriptions),
+        total,
+    )
+    return f"Order {order_id} was registered successfully with status Pending."
+
+
 def get_business_information():
     business_data = load_business_data()
     information = business_data["information"]
@@ -127,7 +197,7 @@ def get_menu():
     return "\n".join(lines)
 
 
-def calculate_order(items):
+def _calculate_order(items):
     business_data = load_business_data()
     menu = {
         item["name"].strip().lower(): item
@@ -135,6 +205,7 @@ def calculate_order(items):
     }
     currency = business_data["currency"]
     order_details = []
+    item_descriptions = []
     total = 0
 
     for item in items:
@@ -142,7 +213,9 @@ def calculate_order(items):
         quantity = item["quantity"]
 
         if product not in menu:
-            return f"{item['product']} is not available on the menu."
+            raise ValueError(
+                f"{item['product']} is not available on the menu."
+            )
 
         menu_item = menu[product]
         subtotal = menu_item["price"] * quantity
@@ -150,6 +223,16 @@ def calculate_order(items):
         order_details.append(
             f"{quantity} x {menu_item['name']} = {currency}{subtotal}"
         )
+        item_descriptions.append(f"{quantity} x {item['product'].strip()}")
+
+    return order_details, item_descriptions, total, currency
+
+
+def calculate_order(items):
+    try:
+        order_details, _, total, currency = _calculate_order(items)
+    except ValueError as error:
+        return str(error)
 
     return (
         "\n".join(order_details)
@@ -159,6 +242,20 @@ def calculate_order(items):
 
 
 def execute_tool(name, arguments):
+    if name == "save_order":
+        if not isinstance(arguments, dict):
+            return "The save_order tool request must be an object."
+        required_arguments = ("customer_name", "items")
+        if any(argument not in arguments for argument in required_arguments):
+            return "The save_order tool request is missing required order details."
+        try:
+            return save_order(
+                arguments["customer_name"],
+                arguments["items"],
+            )
+        except (OSError, KeyError, TypeError, ValueError):
+            return "The order could not be registered in the orders workbook."
+
     if name == "get_business_information":
         try:
             return get_business_information()

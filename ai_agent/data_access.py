@@ -1,13 +1,24 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 from zipfile import BadZipFile
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 BUSINESS_DATA_FILE = DATA_DIR / "cafe_santo_domingo_business_data.xlsx"
+ORDERS_FILE = DATA_DIR / "orders.xlsx"
+ORDER_HEADERS = (
+    "order_id",
+    "timestamp",
+    "customer_name",
+    "items",
+    "total",
+    "status",
+)
 
 _REQUIRED_COLUMNS = {
     "Products": ("product", "price (RD$)", "category"),
@@ -91,3 +102,54 @@ def load_business_data() -> dict[str, Any]:
         "information": sheets["Information"],
         "currency": currency,
     }
+
+
+def save_order_record(
+    customer_name: str,
+    items: str,
+    total: int | float,
+) -> str:
+    order_id = f"ORD-{uuid4().hex[:12].upper()}"
+    timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+    order = (
+        order_id,
+        timestamp,
+        customer_name,
+        items,
+        total,
+        "Pending",
+    )
+
+    if ORDERS_FILE.exists():
+        try:
+            workbook = load_workbook(ORDERS_FILE)
+        except (OSError, BadZipFile, InvalidFileException) as error:
+            raise ValueError(
+                f"Unable to open orders workbook {ORDERS_FILE}: {error}"
+            ) from error
+        worksheet = workbook.active
+        headers = tuple(
+            cell.value
+            for cell in next(
+                worksheet.iter_rows(min_row=1, max_row=1),
+                (),
+            )
+        )
+        if headers != ORDER_HEADERS:
+            workbook.close()
+            raise ValueError(
+                f"Orders workbook must have these columns: "
+                f"{', '.join(ORDER_HEADERS)}"
+            )
+    else:
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.append(ORDER_HEADERS)
+
+    try:
+        worksheet.append(order)
+        workbook.save(ORDERS_FILE)
+    finally:
+        workbook.close()
+
+    return order_id
