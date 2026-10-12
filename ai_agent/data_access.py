@@ -117,7 +117,7 @@ def save_order_record(
         customer_name,
         items,
         total,
-        "Pending",
+        "Confirmed",
     )
 
     if ORDERS_FILE.exists():
