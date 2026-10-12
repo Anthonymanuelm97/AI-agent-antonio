@@ -24,6 +24,23 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "get_business_information",
+            "description": (
+                "Always use this tool when a customer asks about business "
+                "services, branches, location, contact details, or feedback. "
+                "Use only the relevant returned information to answer, and "
+                "do not invent details that are not listed."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "calculate_order",
             "description": (
                 "Always call this tool when a customer asks the price or "
@@ -68,6 +85,18 @@ TOOLS = [
     }
 ]
 HERRAMIENTAS = TOOLS
+
+
+def get_business_information():
+    business_data = load_business_data()
+    information = business_data["information"]
+    if not information:
+        return "There is no business information configured."
+
+    return "\n".join(
+        f"- {item['topic']}: {item['detail']}"
+        for item in information
+    )
 
 
 def get_menu():
@@ -130,6 +159,15 @@ def calculate_order(items):
 
 
 def execute_tool(name, arguments):
+    if name == "get_business_information":
+        try:
+            return get_business_information()
+        except (OSError, KeyError, TypeError, ValueError):
+            return (
+                "Business information could not be retrieved from the "
+                "available business data."
+            )
+
     if name == "get_menu":
         try:
             return get_menu()
