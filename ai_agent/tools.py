@@ -1,13 +1,4 @@
-import json
-from pathlib import Path
-
-
-_BUSINESS_DATA_PATH = Path(__file__).resolve().parent.parent / "business_data.json"
-
-
-def load_business_data():
-    with _BUSINESS_DATA_PATH.open(encoding="utf-8") as business_data_file:
-        return json.load(business_data_file)
+from .data_access import load_business_data
 
 TOOLS = [
     {
@@ -81,19 +72,18 @@ HERRAMIENTAS = TOOLS
 
 def get_menu():
     business_data = load_business_data()
-    currency = business_data["business"]["currency"]["display"]
-    menu = business_data["menu"]
+    currency = business_data["currency"]
+    products = business_data["products"]
     lines = [
         "Menu entries (reference information; availability and prices are "
         "not verified):"
     ]
 
-    for category in menu["categories"]:
-        items = category["items"]
-        if not items:
-            continue
-
-        lines.append(f"\n{category['name']}:")
+    for category in dict.fromkeys(product["category"] for product in products):
+        items = [
+            product for product in products if product["category"] == category
+        ]
+        lines.append(f"\n{category}:")
         for item in items:
             price = item.get("price")
             price_text = (
@@ -112,10 +102,9 @@ def calculate_order(items):
     business_data = load_business_data()
     menu = {
         item["name"].strip().lower(): item
-        for category in business_data["menu"]["categories"]
-        for item in category["items"]
+        for item in business_data["products"]
     }
-    currency = business_data["business"]["currency"]["display"]
+    currency = business_data["currency"]
     order_details = []
     total = 0
 
@@ -144,7 +133,7 @@ def execute_tool(name, arguments):
     if name == "get_menu":
         try:
             return get_menu()
-        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        except (OSError, KeyError, TypeError, ValueError):
             return "The menu could not be retrieved from the available business data."
 
     if name == "calculate_order":
@@ -152,7 +141,7 @@ def execute_tool(name, arguments):
             return "The calculate_order tool request is missing required items."
         try:
             return calculate_order(arguments["items"])
-        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        except (OSError, KeyError, TypeError, ValueError):
             return "The order could not be calculated from the available business data."
 
     return f"The requested tool '{name}' does not exist."

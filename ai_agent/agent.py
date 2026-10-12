@@ -2,7 +2,7 @@ import json
 import os
 from groq import Groq
 
-from agente_ai_builder.tools import HERRAMIENTAS, execute_tool
+from .tools import HERRAMIENTAS, execute_tool
 
 MODEL = "openai/gpt-oss-120b"
 

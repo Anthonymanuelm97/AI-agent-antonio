@@ -1,15 +1,11 @@
-from pathlib import Path
-
-from agent import Agent
-from conversation import start_conversation
+from ai_agent.agent import Agent
+from ai_agent.conversation import start_conversation
+from ai_agent.system_prompts import SYSTEM_PROMPT
 
 
 def main():
-    personality = Path(__file__).with_name("SYSTEM_PROMPTS").read_text(
-        encoding="utf-8"
-    )
     agent = Agent(
-        personality=personality,
+        personality=SYSTEM_PROMPT,
         business_name="the coffee shop",
     )
     start_conversation(agent)

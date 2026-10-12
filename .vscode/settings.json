@@ -1,3 +1,8 @@
 {
-  "python.terminal.useEnvFile": true
+  "python.terminal.useEnvFile": true,
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    ".venv": true
+  }
 }
