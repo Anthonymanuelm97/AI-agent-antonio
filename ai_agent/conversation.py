@@ -1,8 +1,10 @@
 def start_conversation(agent):
-    print(f"Welcome to {agent.business_name}!")
-    agent.user_name = input(
-        "Assistant: What name should I use for you in this conversation? "
-    ).strip() or "User"
+    agent.user_name = input("What is your name? ").strip()
+    customer_name = f", {agent.user_name}" if agent.user_name else ""
+    print(
+        f"Welcome to {agent.business_name}{customer_name}! "
+        "How can I assist you today?"
+    )
 
     while True:
         message = input("You: ").strip()

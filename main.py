@@ -6,7 +6,7 @@ from ai_agent.system_prompts import SYSTEM_PROMPT
 def main():
     agent = Agent(
         personality=SYSTEM_PROMPT,
-        business_name="the coffee shop",
+        business_name="Cafe Santo Domingo",
     )
     start_conversation(agent)
 
