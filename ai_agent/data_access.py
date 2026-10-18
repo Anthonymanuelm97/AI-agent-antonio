@@ -1,3 +1,4 @@
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -11,10 +12,30 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 BUSINESS_DATA_FILE = DATA_DIR / "cafe_santo_domingo_business_data.xlsx"
 ORDERS_FILE = DATA_DIR / "orders.xlsx"
+_orders_lock = threading.Lock()
 ORDER_HEADERS = (
     "order_id",
     "timestamp",
+    "customer",
+    "contact",
+    "items",
+    "detail",
+    "total",
+    "status",
+)
+_LEGACY_ORDER_HEADERS = (
+    "order_id",
+    "timestamp",
     "customer_name",
+    "items",
+    "total",
+    "status",
+)
+_ORDER_HEADERS_WITH_CONTACT = (
+    "order_id",
+    "timestamp",
+    "customer_name",
+    "contact",
     "items",
     "total",
     "status",
@@ -108,6 +129,8 @@ def save_order_record(
     customer_name: str,
     items: str,
     total: int | float,
+    contact: str = "",
+    detail: str = "",
 ) -> str:
     order_id = f"ORD-{uuid4().hex[:12].upper()}"
     timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
@@ -115,41 +138,53 @@ def save_order_record(
         order_id,
         timestamp,
         customer_name,
+        contact,
         items,
+        detail,
         total,
         "Confirmed",
     )
 
-    if ORDERS_FILE.exists():
-        try:
-            workbook = load_workbook(ORDERS_FILE)
-        except (OSError, BadZipFile, InvalidFileException) as error:
-            raise ValueError(
-                f"Unable to open orders workbook {ORDERS_FILE}: {error}"
-            ) from error
-        worksheet = workbook.active
-        headers = tuple(
-            cell.value
-            for cell in next(
-                worksheet.iter_rows(min_row=1, max_row=1),
-                (),
+    with _orders_lock:
+        if ORDERS_FILE.exists():
+            try:
+                workbook = load_workbook(ORDERS_FILE)
+            except (OSError, BadZipFile, InvalidFileException) as error:
+                raise ValueError(
+                    f"Unable to open orders workbook {ORDERS_FILE}: {error}"
+                ) from error
+            worksheet = workbook.active
+            headers = tuple(
+                cell.value
+                for cell in next(
+                    worksheet.iter_rows(min_row=1, max_row=1),
+                    (),
+                )
             )
-        )
-        if headers != ORDER_HEADERS:
-            workbook.close()
-            raise ValueError(
-                f"Orders workbook must have these columns: "
-                f"{', '.join(ORDER_HEADERS)}"
-            )
-    else:
-        workbook = Workbook()
-        worksheet = workbook.active
-        worksheet.append(ORDER_HEADERS)
+            if headers == _LEGACY_ORDER_HEADERS:
+                worksheet.insert_cols(4)
+                worksheet.cell(row=1, column=4, value="contact")
+                headers = _ORDER_HEADERS_WITH_CONTACT
+            if headers == _ORDER_HEADERS_WITH_CONTACT:
+                worksheet.cell(row=1, column=3, value="customer")
+                worksheet.insert_cols(6)
+                worksheet.cell(row=1, column=6, value="detail")
+                headers = ORDER_HEADERS
+            if headers != ORDER_HEADERS:
+                workbook.close()
+                raise ValueError(
+                    f"Orders workbook must have these columns: "
+                    f"{', '.join(ORDER_HEADERS)}"
+                )
+        else:
+            workbook = Workbook()
+            worksheet = workbook.active
+            worksheet.append(ORDER_HEADERS)
 
-    try:
-        worksheet.append(order)
-        workbook.save(ORDERS_FILE)
-    finally:
-        workbook.close()
+        try:
+            worksheet.append(order)
+            workbook.save(ORDERS_FILE)
+        finally:
+            workbook.close()
 
     return order_id

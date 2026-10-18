@@ -8,8 +8,14 @@ MODEL = "openai/gpt-oss-120b"
 
 
 class Agent:
-    def __init__(self, personality: str, business_name: str = "the coffee shop"):
+    def __init__(
+        self,
+        personality: str,
+        client_id: str = "terminal",
+        business_name: str = "the coffee shop",
+    ):
         self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        self.client_id = client_id
         self.business_name = business_name
         self.user_name = ""
         self.record = [
@@ -75,7 +81,11 @@ class Agent:
                         arguments = json.loads(arguments)
                     if not isinstance(arguments, dict):
                         raise ValueError("Tool arguments must be a JSON object.")
-                    result = execute_tool(tool_call.function.name, arguments)
+                    result = execute_tool(
+                        tool_call.function.name,
+                        arguments,
+                        self.client_id,
+                    )
                 except (json.JSONDecodeError, TypeError, ValueError):
                     result = (
                         "The tool request could not be processed because its "

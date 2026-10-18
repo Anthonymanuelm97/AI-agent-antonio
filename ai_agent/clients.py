@@ -13,7 +13,10 @@ def _get_agent_and_lock(
 ) -> tuple[Agent, threading.Lock]:
     with _general_lock:
         if client_id not in _agents:
-            _agents[client_id] = Agent(personality=SYSTEM_PROMPT)
+            _agents[client_id] = Agent(
+                personality=SYSTEM_PROMPT,
+                client_id=client_id,
+            )
             _locks[client_id] = threading.Lock()
 
         return _agents[client_id], _locks[client_id]

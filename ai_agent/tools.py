@@ -129,8 +129,8 @@ TOOLS = [
 HERRAMIENTAS = TOOLS
 
 
-def save_order(customer_name, items):
-    return create_order(customer_name, items)
+def save_order(customer_name, items, contact: str = ""):
+    return create_order(customer_name, items, contact)
 
 
 def get_business_information():
@@ -177,7 +177,7 @@ def calculate_order(items):
     return calculate_order_price(items)
 
 
-def execute_tool(name, arguments):
+def execute_tool(name, arguments, client_id: str = ""):
     if name == "save_order":
         if not isinstance(arguments, dict):
             return "The save_order tool request must be an object."
@@ -188,6 +188,7 @@ def execute_tool(name, arguments):
             return save_order(
                 arguments["customer_name"],
                 arguments["items"],
+                client_id,
             )
         except (OSError, KeyError, TypeError, ValueError):
             return "The order could not be registered in the orders workbook."

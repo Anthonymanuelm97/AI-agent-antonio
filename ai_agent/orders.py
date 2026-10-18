@@ -1,7 +1,7 @@
 from .data_access import load_business_data, save_order_record
 
 
-def create_order(customer_name, items):
+def create_order(customer_name, items, contact: str = ""):
     if not isinstance(customer_name, str) or not customer_name.strip():
         raise ValueError("A customer name is required to save an order.")
     if not isinstance(items, list) or not items:
@@ -18,7 +18,7 @@ def create_order(customer_name, items):
             raise ValueError("Each order item must have a positive integer quantity.")
 
     try:
-        _, item_descriptions, total, _ = _calculate_order(items)
+        order_details, item_descriptions, total, _ = _calculate_order(items)
     except ValueError as error:
         return f"Order was not saved: {error}"
 
@@ -26,6 +26,8 @@ def create_order(customer_name, items):
         customer_name.strip(),
         ", ".join(item_descriptions),
         total,
+        contact,
+        "\n".join(order_details),
     )
     return f"Order {order_id} was registered successfully with status Confirmed."
 
