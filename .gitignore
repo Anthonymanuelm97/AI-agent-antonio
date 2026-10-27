@@ -12,3 +12,8 @@ wheels/
 # Local environment variables
 .env
 data/orders.xlsx
+
+#WhatsApp Bridges
+node_modules/
+whatsapp_bridge/session/
+whatsapp_bridge/qr.png
