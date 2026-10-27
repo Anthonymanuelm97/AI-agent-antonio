@@ -7,6 +7,14 @@ import QRCode from "qrcode";
 import pino from "pino";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  getMediaType,
+  hasBotMarker,
+  identifyClient,
+  isMediaMessage,
+  isMessageRecent,
+  summarizeMessage,
+} from "./logic.mjs";
 
 const DISCONNECT_REASONS = {
   408: "Internet connection lost or request timed out",
@@ -47,61 +55,96 @@ async function sendToAgent(clientId, message) {
   return result.response;
 }
 
-function extractText(messageContent) {
+function unwrapMessageContent(messageContent) {
   let content = messageContent;
 
   while (content && typeof content === "object") {
-    const text = content.conversation ?? content.extendedTextMessage?.text;
-    if (typeof text === "string" && text.trim()) {
-      return text.trim();
-    }
-
-    content =
+    const wrappedContent =
       content.ephemeralMessage?.message ??
       content.viewOnceMessage?.message ??
       content.viewOnceMessageV2?.message;
+    if (!wrappedContent) {
+      break;
+    }
+
+    content = wrappedContent;
   }
 
-  return null;
+  return content;
 }
 
-function getClientId(senderJid) {
-  const normalizedJid = jidNormalizedUser(senderJid);
-  const separator = normalizedJid.lastIndexOf("@");
+function extractText(messageContent) {
+  const content = unwrapMessageContent(messageContent);
+  const text = content?.conversation ?? content?.extendedTextMessage?.text;
 
-  if (separator <= 0) {
-    return null;
-  }
-
-  const user = normalizedJid.slice(0, separator);
-  const server = normalizedJid.slice(separator + 1);
-  if (!["s.whatsapp.net", "lid"].includes(server)) {
-    return null;
-  }
-
-  return `${user}_${server.replace(/\./g, "_")}`;
+  return typeof text === "string" && text.trim() ? text.trim() : null;
 }
 
 async function handleIncomingMessages(socket, messages) {
   for (const incomingMessage of messages) {
     try {
-      if (incomingMessage.key?.fromMe) {
-        continue;
-      }
-
       const senderJid = incomingMessage.key?.remoteJid;
-      if (typeof senderJid !== "string" || !senderJid) {
+      const messageId = incomingMessage.key?.id;
+      const normalizedSenderJid =
+        typeof senderJid === "string" ? jidNormalizedUser(senderJid) : "";
+      const senderServer = normalizedSenderJid.split("@").at(-1);
+      const client = identifyClient(
+        normalizedSenderJid,
+        incomingMessage.pushName,
+      );
+      const timestampValue =
+        incomingMessage.messageTimestamp?.toString?.() ??
+        incomingMessage.messageTimestamp;
+      const parsedTimestamp = Number(timestampValue);
+      const timestamp = Number.isFinite(parsedTimestamp)
+        ? parsedTimestamp
+        : null;
+      const messageContent = unwrapMessageContent(incomingMessage.message);
+      const text = extractText(messageContent);
+      const context = {
+        senderJid,
+        clientId: client.clientId,
+        displayName: client.displayName,
+        timestamp,
+        text,
+        summary: summarizeMessage(text),
+        mediaType: getMediaType(messageContent),
+        isMedia: isMediaMessage(messageContent),
+        isRecent: isMessageRecent(timestamp),
+        hasBotMarker: hasBotMarker(text),
+        fromMe: incomingMessage.key?.fromMe === true,
+      };
+
+      if (
+        context.fromMe ||
+        typeof messageId !== "string" ||
+        !messageId ||
+        sentMessages.has(messageId) ||
+        allowedMessages.has(messageId) ||
+        typeof senderJid !== "string" ||
+        !senderJid ||
+        senderJid === "status@broadcast" ||
+        senderServer === "g.us" ||
+        !["s.whatsapp.net", "lid"].includes(senderServer) ||
+        !context.clientId ||
+        !context.text ||
+        context.isMedia ||
+        !context.isRecent ||
+        context.hasBotMarker
+      ) {
         continue;
       }
 
-      const clientId = getClientId(senderJid);
-      const message = extractText(incomingMessage.message);
-      if (!clientId || !message) {
-        continue;
-      }
+      allowedMessages.add(messageId);
 
-      const agentResponse = await sendToAgent(clientId, message);
-      await socket.sendMessage(senderJid, { text: agentResponse });
+      const agentResponse = await sendToAgent(context.clientId, context.text);
+      const sentMessage = await socket.sendMessage(context.senderJid, {
+        text: agentResponse,
+      });
+      const sentMessageId = sentMessage?.key?.id;
+      if (typeof sentMessageId === "string" && sentMessageId) {
+        sentMessages.add(sentMessageId);
+      }
     } catch (error) {
       console.error("Failed to process an incoming WhatsApp message:", error);
     }
@@ -121,6 +164,9 @@ function scheduleReconnect() {
     });
   }, 3000);
 }
+
+const sentMessages = new Set();
+const allowedMessages = new Set();
 
 async function connectWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState(authDirectory);
