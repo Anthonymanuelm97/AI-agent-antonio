@@ -1,4 +1,5 @@
 from .data_access import load_business_data
+from .cleaner import MAX_NAME, clean_text
 from .orders import calculate_order as calculate_order_price, create_order
 
 TOOLS = [
@@ -130,7 +131,7 @@ HERRAMIENTAS = TOOLS
 
 
 def save_order(customer_name, items, contact: str = ""):
-    return create_order(customer_name, items, contact)
+    return create_order(clean_text(customer_name, MAX_NAME), items, contact)
 
 
 def get_business_information():
