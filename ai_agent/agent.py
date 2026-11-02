@@ -35,6 +35,14 @@ class Agent:
         return messages
 
     def answer(self, message: str) -> str:
+        initial_length = len(self.record)
+        try:
+            return self._answer(message)
+        except Exception:
+            del self.record[initial_length:]
+            raise
+
+    def _answer(self, message: str) -> str:
         self.record.append({"role": "user", "content": message})
 
         while True:

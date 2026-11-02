@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file=.env bridge.mjs",
+    "test:attention": "node test_attention.mjs",
     "test:logic": "node test_logic.mjs",
     "probar:logica": "node test_logic.mjs",
     "probar:atencion": "node --env-file=.env probar_atencion.mjs"

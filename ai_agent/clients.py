@@ -22,6 +22,12 @@ def _get_agent_and_lock(
         return _agents[client_id], _locks[client_id]
 
 
+def reset_client(client_id: str) -> None:
+    with _general_lock:
+        _agents.pop(client_id, None)
+        _locks.pop(client_id, None)
+
+
 def respond_to(client_id: str, message: str) -> str:
     agent, lock = _get_agent_and_lock(client_id)
 
